@@ -93,6 +93,7 @@ void GazeboRosCameraUtils::Load(sensors::SensorPtr _parent,
   //an incomplete this->camera_name_ namespace. There was a race condition when the _camera_name_suffix
   //was appended in this function.
   this->Load(_parent, _sdf, _camera_name_suffix);
+  ROS_INFO("------------------------------------GAZEBO CAMERA UTILS LOAD-------------------------------------");
 
   // overwrite hack baseline if specified at load
   // example usage in gazebo_ros_multicamera
@@ -576,7 +577,37 @@ void GazeboRosCameraUtils::Init()
   camera_info_msg.R[8] = 1.0;
   // camera_ projection matrix (same as camera_ matrix due
   // to lack of distortion/rectification) (is this generated?)
-  camera_info_msg.P[0] = this->focal_length_;
+  // set the projection matrix to K[R|t]. Useful for multiple camera systems more than two cameras
+  ignition::math::Matrix4d m( camera_info_msg.K[0],  camera_info_msg.K[1],  camera_info_msg.K[2],0.0,\
+                               camera_info_msg.K[3], camera_info_msg.K[4], camera_info_msg.K[5],0.0,\
+                               camera_info_msg.K[6], camera_info_msg.K[7], camera_info_msg.K[8],0.0,\
+                               0.0, 0.0, 0.0, 1.0);
+  ignition::math::Pose3d cameraPose = this->camera_->WorldPose();
+  ignition::math::Matrix4d m4(cameraPose);
+  std::stringstream ss;
+  ss<< m(0, 0)<<","<< m(0, 1)<<","<< m(0, 2)<<","<<m(0, 3)<<"\n"<< m(1, 0)<<","<< m(1, 1)<<","<< m(1, 2)\
+    <<","<<m(1, 3)<<"\n"<<m(2, 0)<<","<< m(2, 1)<<","<< m(2, 2)<<","<<m(2, 3)<<"\n"<<m(3, 0)<<","<< m(3, 1)\
+    <<","<< m(3, 2)<<m(3, 3)<<"\n";
+
+  ss<< m4(0, 0)<<","<< m4(0, 1)<<","<< m4(0, 2)<<m4(0, 3)<<"\n"<< m4(1, 0)<<","<< m4(1, 1)<<","<< m4(1, 2)<<m4(1, 3)<<"\n"<<m4(2, 0)<<","<< m4(2, 1)<<","<< m4(2, 2)<<m4(2, 3)<<"\n"<<m4(3, 0)<<","<< m4(3, 1)<<","<< m4(3, 2)<<m4(3, 3)<<"\n";
+  ROS_INFO(ss.str().c_str());
+
+  m = m4*m;
+
+  camera_info_msg.P[0] = m(0,0);
+  camera_info_msg.P[1] = m(0,1);
+  camera_info_msg.P[2] = m(0,2);
+  camera_info_msg.P[3] = m(0,3);
+  camera_info_msg.P[4] = m(1,0);
+  camera_info_msg.P[5] = m(1,1);
+  camera_info_msg.P[6] = m(1,2);
+  camera_info_msg.P[7] = m(1,3);
+  camera_info_msg.P[8] = m(2,0);
+  camera_info_msg.P[9] = m(2,1);
+  camera_info_msg.P[10] = m(2,2);
+  camera_info_msg.P[11] = m(2,3);
+
+  /*camera_info_msg.P[0] = this->focal_length_;
   camera_info_msg.P[1] = 0.0;
   camera_info_msg.P[2] = this->cx_;
   camera_info_msg.P[3] = -this->focal_length_ * this->hack_baseline_;
@@ -587,7 +618,8 @@ void GazeboRosCameraUtils::Init()
   camera_info_msg.P[8] = 0.0;
   camera_info_msg.P[9] = 0.0;
   camera_info_msg.P[10] = 1.0;
-  camera_info_msg.P[11] = 0.0;
+  camera_info_msg.P[11] = 0.0; */
+
 
   this->camera_info_manager_->setCameraInfo(camera_info_msg);
 
